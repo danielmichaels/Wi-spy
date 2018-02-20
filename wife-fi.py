@@ -13,13 +13,14 @@ from config import *
 
 # TODO: only log changes - enter/ exit range (if gone for x time, log as exit)
 # TODO: only show unique entries.
+# TODO: auto generate databases instead of hardcoding.
+# TODO: use dict so MAC can have value associated with it.
 
 
 def packet_handler(packet):
     """Sniff for ProbeAssoReq, ReassoReq and Probrequest.
     Display results to screen
     """
-    targets = {"Samsung-Phone": "30:07:4D:17:05:05"}  # target to Report()
     management_frames = (0, 2, 4)
     timestamp = epoch()
     rssi = get_rssi(packet)
@@ -28,8 +29,10 @@ def packet_handler(packet):
         if packet.type == 0 and packet.subtype in management_frames:
             ssid = packet.info
             mac = packet.addr2
-            if mac in targets['Samsung-Phone'].lower():
-                report(targets, mac, timestamp)
+            if mac in TARGET_LIST:
+                print('report should fire.')
+                msg = 'alive'
+                report(None, mac, msg, timestamp)
 
             printer(mac, rssi, timestamp, ssid)
             log(ssid, mac, rssi, timestamp)
@@ -65,7 +68,6 @@ def printer(mac, rssi, timestamp, ssid):
 
 def log(ssid, mac, rssi, epoch):
     """Log packets to database"""
-    create_db()  # check for db, or create it.
     with closing(sqlite3.connect('probe_logs.db')) as cursor:
         cursor.execute(
             "INSERT OR IGNORE INTO probes VALUES (:ssid, :mac, :rssi, :epoch);",
@@ -73,17 +75,13 @@ def log(ssid, mac, rssi, epoch):
         cursor.commit()
 
 
-def report(target, mac, msg, timestamp):
+def report(target, mac, timestamp, msg):
     """Alert if specified MAC is in range."""
-    for name, mac in target.items():
-        print("Target {name}: {mac} found at {time}".format(
-            name=name, mac=mac, time=epoch_to_local(epoch())))
-
     with closing(sqlite3.connect('report_log.db')) as cursor:
-        cursor.execute("INSERT OR IGNORE INTO report VALUES(:target,"
-                       ":mac, :timestamp);",
-                       dict(target=target, mac=mac, msg=msg,
-                            timestamp=timestamp))
+        cursor.execute("""INSERT INTO report VALUES(:target,
+                       :mac, :timestamp, :msg);""",
+                       dict(target=target, mac=mac,
+                            timestamp=timestamp, msg=msg))
         cursor.commit()
 
 
@@ -104,7 +102,13 @@ def create_db():
             conn.commit()
 
 
+def main():
+    """Setup function."""
+    create_db()  # check for db, or create it.
+
+
 if __name__ == '__main__':
+    main()
     for_testing_only = list()
     # sniff(iface=sys.argv[1], store=0, prn=packet_handler)
     sniff(iface=IFACE, store=0, prn=packet_handler)
