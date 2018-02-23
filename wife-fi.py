@@ -3,8 +3,7 @@
 from contextlib import closing
 from scapy.all import *
 from scapy.layers.dot11 import RadioTap, Dot11
-import sys
-import datetime
+from datetime import datetime, timedelta
 import sqlite3
 
 # Import config
@@ -23,6 +22,7 @@ def packet_handler(packet):
     """
     management_frames = (0, 2, 4)
     timestamp = epoch()
+
     rssi = get_rssi(packet)
 
     if packet.haslayer(Dot11):
@@ -30,9 +30,10 @@ def packet_handler(packet):
             ssid = packet.info
             mac = packet.addr2
             if mac in TARGET_LIST:
-                print('report should fire.')
+                print('report should fire.', timestamp, mac)
                 msg = 'alive'
                 report(None, mac, msg, timestamp)
+                time.sleep(5)
 
             printer(mac, rssi, timestamp, ssid)
             log(ssid, mac, rssi, timestamp)
@@ -46,8 +47,8 @@ def get_rssi(packet):
 
 def epoch():
     """Get local time."""
-    dt = datetime.datetime.utcnow()
-    epoch = datetime.datetime.timestamp(dt)
+    dt = datetime.utcnow()
+    epoch = int(datetime.timestamp(dt))
     return epoch
 
 
@@ -84,6 +85,8 @@ def report(target, mac, timestamp, msg):
                             timestamp=timestamp, msg=msg))
         cursor.commit()
 
+    # check_if_alive()
+
 
 def create_db():
     """Creates db. Callback within log()."""
@@ -102,6 +105,14 @@ def create_db():
             conn.commit()
 
 
+def check_if_alive():
+    """Check if the target is no longer in the area."""
+    with closing(sqlite3.connect('report_log.db')) as cursor:
+        get_last_recorded_time = cursor.execute(
+            'SELECT timestamp FROM report ORDER BY ROWID DESC LIMIT 1;')
+        return get_last_recorded_time.fetchone()[0]
+
+
 def main():
     """Setup function."""
     create_db()  # check for db, or create it.
@@ -112,3 +123,9 @@ if __name__ == '__main__':
     for_testing_only = list()
     # sniff(iface=sys.argv[1], store=0, prn=packet_handler)
     sniff(iface=IFACE, store=0, prn=packet_handler)
+
+    timestamp = epoch()
+    last_report = int(check_if_alive())
+    now = datetime.now()
+    run_at = (now + timedelta(minutes=1))
+    seconds_elapsed = (run_at - now).total_seconds()
