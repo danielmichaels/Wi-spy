@@ -19,6 +19,7 @@ Query = collections.namedtuple('query', 'target mac msg time')
 # TODO: ^cont. each target in list.
 # TODO: should I return constant 'alive' & 'dead' or make conditional?
 # TODO: put all sql into new file
+# TODO: target that sleeps doesn't probe until in use --> force it.
 
 
 def packet_handler(packet):
