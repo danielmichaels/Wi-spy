@@ -9,11 +9,16 @@ import sqlite3
 # Import config
 from config import *
 
+# Globals
+Query = collections.namedtuple('query', 'target mac msg time')
 
-# TODO: only log changes - enter/ exit range (if gone for x time, log as exit)
-# TODO: only show unique entries.
+
 # TODO: auto generate databases instead of hardcoding.
 # TODO: use dict so MAC can have value associated with it.
+# TODO: current sql query only returns last report. needs to return last of
+# TODO: ^cont. each target in list.
+# TODO: should I return constant 'alive' & 'dead' or make conditional?
+# TODO: put all sql into new file
 
 
 def packet_handler(packet):
@@ -22,6 +27,7 @@ def packet_handler(packet):
     """
     management_frames = (0, 2, 4)
     timestamp = epoch()
+    query = check_if_alive()
 
     rssi = get_rssi(packet)
 
@@ -30,10 +36,17 @@ def packet_handler(packet):
             ssid = packet.info
             mac = packet.addr2
             if mac in TARGET_LIST:
-                print('report should fire.', timestamp, mac)
-                msg = 'alive'
-                report(None, mac, msg, timestamp)
-                time.sleep(5)
+                print('report should fire.', timestamp, mac,
+                      epoch_to_local(timestamp))
+                report(None, mac, 'alive', timestamp)
+                time.sleep(5)  # to stop multiple entries
+
+            if timestamp > (query.time + ALERT_THRESHOLD):
+                print('report should return dead for: {}'.format(
+                    check_if_alive().mac), epoch_to_local(timestamp))
+                report(check_if_alive().target, check_if_alive().mac,
+                       'Dead', check_if_alive().time)
+                time.sleep(5)  # to stop multiple entries
 
             printer(mac, rssi, timestamp, ssid)
             log(ssid, mac, rssi, timestamp)
@@ -85,8 +98,6 @@ def report(target, mac, timestamp, msg):
                             timestamp=timestamp, msg=msg))
         cursor.commit()
 
-    # check_if_alive()
-
 
 def create_db():
     """Creates db. Callback within log()."""
@@ -108,24 +119,16 @@ def create_db():
 def check_if_alive():
     """Check if the target is no longer in the area."""
     with closing(sqlite3.connect('report_log.db')) as cursor:
-        get_last_recorded_time = cursor.execute(
-            'SELECT timestamp FROM report ORDER BY ROWID DESC LIMIT 1;')
-        return get_last_recorded_time.fetchone()[0]
-
-
-def main():
-    """Setup function."""
-    create_db()  # check for db, or create it.
+        query = cursor.execute(
+            'SELECT * FROM report ORDER BY ROWID DESC LIMIT 1;')
+        target, mac, msg, time = query.fetchone()
+        fetched_query = Query(target=target, mac=mac, msg=msg, time=int(time))
+        return fetched_query
+        # return target, mac, msg, time
 
 
 if __name__ == '__main__':
-    main()
+    create_db()  # check for db, or create it.
     for_testing_only = list()
     # sniff(iface=sys.argv[1], store=0, prn=packet_handler)
     sniff(iface=IFACE, store=0, prn=packet_handler)
-
-    timestamp = epoch()
-    last_report = int(check_if_alive())
-    now = datetime.now()
-    run_at = (now + timedelta(minutes=1))
-    seconds_elapsed = (run_at - now).total_seconds()
