@@ -8,9 +8,13 @@ import sqlite3
 
 # Import config
 from config import *
+# Import database
+from database import SqlDatabase
+
 
 # Globals
-Query = collections.namedtuple('query', 'target mac msg time')
+Query = collections.namedtuple('query', 'target mac msg time debug')
+db = SqlDatabase('test.db') # database for logging targets.
 
 
 # TODO: auto generate databases instead of hardcoding.
@@ -18,7 +22,6 @@ Query = collections.namedtuple('query', 'target mac msg time')
 # TODO: current sql query only returns last report. needs to return last of
 # TODO: ^cont. each target in list.
 # TODO: should I return constant 'alive' & 'dead' or make conditional?
-# TODO: put all sql into new file
 # TODO: target that sleeps doesn't probe until in use --> force it.
 
 
@@ -28,7 +31,6 @@ def packet_handler(packet):
     """
     management_frames = (0, 2, 4)
     timestamp = epoch()
-    query = check_if_alive()
 
     rssi = get_rssi(packet)
 
@@ -37,17 +39,26 @@ def packet_handler(packet):
             ssid = packet.info
             mac = packet.addr2
             if mac in TARGET_LIST:
-                print('report should fire.', timestamp, mac,
-                      epoch_to_local(timestamp))
-                report(None, mac, 'alive', timestamp)
-                time.sleep(5)  # to stop multiple entries
+                try:
+                    print('report should fire.', timestamp, mac,
+                          epoch_to_local(timestamp))
+                    report(None, mac, 'alive', timestamp,
+                           epoch_to_local(timestamp))
+                    time.sleep(5)  # to stop multiple entries
+                except TypeError as te:
+                    print('we have an error:', te)
 
             if timestamp > (query.time + ALERT_THRESHOLD):
-                print('report should return dead for: {}'.format(
-                    check_if_alive().mac), epoch_to_local(timestamp))
-                report(check_if_alive().target, check_if_alive().mac,
-                       'Dead', check_if_alive().time)
-                time.sleep(5)  # to stop multiple entries
+                try:
+                    print('report should return dead for: {}'.format(
+                        query().mac), epoch_to_local(timestamp))
+
+                    report(query.target, query().mac,
+                           'Dead', query().time,
+                           epoch_to_local(timestamp))
+                    time.sleep(5)  # to stop multiple entries
+                except TypeError as te:
+                    print('we have an error:', te)
 
             printer(mac, rssi, timestamp, ssid)
             log(ssid, mac, rssi, timestamp)
@@ -81,55 +92,18 @@ def printer(mac, rssi, timestamp, ssid):
             mac, rssi, epoch_to_local(timestamp), ssid))
 
 
+
 def log(ssid, mac, rssi, epoch):
     """Log packets to database"""
-    with closing(sqlite3.connect('probe_logs.db')) as cursor:
-        cursor.execute(
-            "INSERT OR IGNORE INTO probes VALUES (:ssid, :mac, :rssi, :epoch);",
-            dict(ssid=ssid, mac=mac, rssi=rssi, epoch=epoch))
-        cursor.commit()
+    pass
 
 
-def report(target, mac, timestamp, msg):
+def report(target, mac, timestamp, msg, debug):
     """Alert if specified MAC is in range."""
-    with closing(sqlite3.connect('report_log.db')) as cursor:
-        cursor.execute("""INSERT INTO report VALUES(:target,
-                       :mac, :timestamp, :msg);""",
-                       dict(target=target, mac=mac,
-                            timestamp=timestamp, msg=msg))
-        cursor.commit()
-
-
-def create_db():
-    """Creates db. Callback within log()."""
-    with sqlite3.connect('probe_logs.db') as conn:
-        with closing(conn.cursor()) as cursor:
-            create_probe_table = """CREATE TABLE IF NOT EXISTS probes(
-        ssid TEXT, mac TEXT, rssi TEXT, epoch TEXT)"""
-            cursor.execute(create_probe_table)
-            conn.commit()
-
-    with sqlite3.connect('report_log.db') as conn:
-        with closing(conn.cursor()) as cursor:
-            create_report_table = """CREATE TABlE IF NOT EXISTS report(
-            target TEXT, mac TEXT, msg TEXT, timestamp TEXT)"""
-            cursor.execute(create_report_table)
-            conn.commit()
-
-
-def check_if_alive():
-    """Check if the target is no longer in the area."""
-    with closing(sqlite3.connect('report_log.db')) as cursor:
-        query = cursor.execute(
-            'SELECT * FROM report ORDER BY ROWID DESC LIMIT 1;')
-        target, mac, msg, time = query.fetchone()
-        fetched_query = Query(target=target, mac=mac, msg=msg, time=int(time))
-        return fetched_query
-        # return target, mac, msg, time
-
+    pass
 
 if __name__ == '__main__':
-    create_db()  # check for db, or create it.
+
     for_testing_only = list()
     # sniff(iface=sys.argv[1], store=0, prn=packet_handler)
     sniff(iface=IFACE, store=0, prn=packet_handler)
