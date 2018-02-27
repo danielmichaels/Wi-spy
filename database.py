@@ -17,9 +17,19 @@ class SqlDatabase:
             self.conn = sqlite3.connect(name)
             self.cursor = self.conn.cursor()
 
-        except sqlite3.Error as e:
+        except sqlite3.Error:
             print("Error opening Database: {}".format(name))
             # log?
+
+    def create_table(self):
+        try:
+            query = """CREATE TABLE IF NOT EXISTS logging (target TEXT, 
+                    mac TEXT, rssi TEXT, epochtime TEXT, dtg TEXT)"""
+            self.cursor.execute(query)
+            self.conn.commit()
+
+        except sqlite3.Error as e:
+            print(e.__repr__())
 
     def get(self, table, column, limit=None):
 
@@ -35,13 +45,15 @@ class SqlDatabase:
 
         return self.get(table, column, limit=1)[0]
 
-    def write(self, table, column, *data):
-        query = "INSERT INTO {0} ({1}) VALUES ({2});".format(
-            table, column, *data)
-        self.cursor.execute(query)
+    def write(self, target=None, mac=None, rssi=None, epochtime=None,
+              dtg=None):
+        query = """insert into logging values(:target, :mac, :rssi, :epochtime, :dtg)"""
+        fields = dict(target=target, mac=mac, rssi=rssi, epochtime=epochtime,
+                      dtg=dtg)
+        self.cursor.execute(query, fields)  # execute needs (sql [,parameters])
 
     def query(self, *sql):
-        """Enter any other query"""
+        """Utility function to enter any query"""
         self.cursor.execute(*sql)
 
     def __enter__(self):
@@ -58,13 +70,19 @@ class SqlDatabase:
         self.conn.close()
 
 
-db = SqlDatabase('log.db')
-
-with db:
+# db = SqlDatabase('log.db')
+# with db:
+with SqlDatabase('log.db') as db:
     a = db.get('messages', '*')
     print(a)
     b = db.get_last('messages', '*')
     print(b)
-    db.write('messages', 'lvl', 'adfa', )
+    # db.write('messages', 'lvl', 'adfa', )
     # db.query("""insert into messages values(:dtg, :lvl, :msg);""",
     #     dict(dtg='1214241', lvl='dafda', msg='working?'))
+
+with SqlDatabase('test.db') as db:
+    db.create_table()
+    # db.query("INSERT INTO logging VALUES(:target, :mac, :rssi, :epochtime, :dtg);",
+    #          dict(target='target', mac='mac', rssi='rssi', epochtime='epoch', dtg='dtg'))
+    db.write('target', 'mac', 'rssi', 'epoch', 'dtg')
