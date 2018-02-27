@@ -1,4 +1,3 @@
-from contextlib import closing
 import sqlite3
 
 # import config
@@ -6,6 +5,20 @@ from config import *
 
 
 class SqlDatabase:
+    """SQLite3 class wrapper
+
+    Made for use in a 'with' statement.
+
+    Methods include:
+    - open
+    - create_table
+    - get: given a column, table and limit; return a fetchall().
+    - get_last: utility to get last row in given table and column.
+    - write: specific to the program module.
+    - query: utility to pass in any functional sql query.
+    - __enter__: allows 'with' statement.
+    - __exit__: allows 'with' statement.
+    """
 
     def __init__(self, name=None):
 
@@ -22,6 +35,8 @@ class SqlDatabase:
             # log?
 
     def create_table(self):
+        """Create table; currently hardcoded for use within the program module.
+        """
         try:
             query = """CREATE TABLE IF NOT EXISTS logging (target TEXT, 
                     mac TEXT, rssi TEXT, epochtime TEXT, dtg TEXT)"""
@@ -32,6 +47,15 @@ class SqlDatabase:
             print(e.__repr__())
 
     def get(self, table, column, limit=None):
+        """Retrieve items within specified column within table and accepts
+        a limit of number of returned rows.
+
+        :param table: name of table to be parsed.
+        :param column: column within the table.
+        :param limit: number of rows the be returned; default is None.
+
+        :return: all rows unless limit argument is used.
+        """
 
         query = "SELECT {0} from {1};".format(column, table)
         self.cursor.execute(query)
@@ -42,18 +66,40 @@ class SqlDatabase:
         return rows[len(rows) - limit if limit else 0:]
 
     def get_last(self, table, column):
+        """Utility method that gets last row.
+
+        :param table: table to search.
+        :param column: specific column to get last row.
+        :return last row.
+        """
 
         return self.get(table, column, limit=1)[0]
 
     def write(self, target=None, mac=None, rssi=None, epochtime=None,
               dtg=None):
+        """Write to the database
+
+        :param target: the human readable name.
+        :param mac: the MAC address that matches target.
+        :param rssi: recieved signal strength indicator of target/mac.
+        :param epochtime: machine readable epoch time.
+        :param dtg: date time group --> human readable local system time.
+
+        Usage:
+
+            >>> db = SqlDatabase('example_db.db')
+            >>> db.write(target, mac, rssi, epochtime, dtg)
+
+        each param defaults to None.
+        """
+
         query = """insert into logging values(:target, :mac, :rssi, :epochtime, :dtg)"""
         fields = dict(target=target, mac=mac, rssi=rssi, epochtime=epochtime,
                       dtg=dtg)
         self.cursor.execute(query, fields)  # execute needs (sql [,parameters])
 
     def query(self, *sql):
-        """Utility function to enter any query"""
+        """Utility function to enter any valid SQL query"""
         self.cursor.execute(*sql)
 
     def __enter__(self):
@@ -70,16 +116,10 @@ class SqlDatabase:
         self.conn.close()
 
 
+# RANDOM TESTING STUFF
+
 # db = SqlDatabase('log.db')
 # with db:
-with SqlDatabase('log.db') as db:
-    a = db.get('messages', '*')
-    print(a)
-    b = db.get_last('messages', '*')
-    print(b)
-    # db.write('messages', 'lvl', 'adfa', )
-    # db.query("""insert into messages values(:dtg, :lvl, :msg);""",
-    #     dict(dtg='1214241', lvl='dafda', msg='working?'))
 
 with SqlDatabase('test.db') as db:
     db.create_table()
