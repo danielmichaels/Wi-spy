@@ -1,20 +1,27 @@
-#!/usr/bin/env python3
+# program.py
+# !/usr/bin/env python3
+"""Library for scanning wireless frames and locating MAC addresses of interest.
+
+Using a wireless adapter capable of monitor mode and super user permissions
+the library can search for a selection of MAC addresses and log their presence
+or absence with both epoch and local system time to a sqlite database.
+
+User must have sudo and aircrack-ng suite to monitor and cycle channels.
+"""
 
 from contextlib import closing
 from scapy.all import *
 from scapy.layers.dot11 import RadioTap, Dot11
 from datetime import datetime, timedelta
-import sqlite3
 
 # Import config
 from config import *
 # Import database
 from database import SqlDatabase
 
-
 # Globals
-Query = collections.namedtuple('query', 'target mac msg time debug')
-db = SqlDatabase('test.db') # database for logging targets.
+db = SqlDatabase('test.db')  # database for logging targets.
+db.create_table()
 
 
 # TODO: auto generate databases instead of hardcoding.
@@ -30,38 +37,45 @@ def packet_handler(packet):
     Display results to screen
     """
     management_frames = (0, 2, 4)
-    timestamp = epoch()
 
-    rssi = get_rssi(packet)
+    if not packet.haslayer(Dot11):
+        return
 
-    if packet.haslayer(Dot11):
-        if packet.type == 0 and packet.subtype in management_frames:
-            ssid = packet.info
-            mac = packet.addr2
-            if mac in TARGET_LIST:
-                try:
-                    print('report should fire.', timestamp, mac,
-                          epoch_to_local(timestamp))
-                    report(None, mac, 'alive', timestamp,
-                           epoch_to_local(timestamp))
-                    time.sleep(5)  # to stop multiple entries
-                except TypeError as te:
-                    print('we have an error:', te)
+    if packet.type == 0 and packet.subtype in management_frames:
 
-            if timestamp > (query.time + ALERT_THRESHOLD):
-                try:
-                    print('report should return dead for: {}'.format(
-                        query().mac), epoch_to_local(timestamp))
+        ssid = packet.info
+        mac = packet.addr2
+        rssi = get_rssi(packet)
+        epoch = epochtime()
+        dtg = system_time(epoch)
+        msg = None
 
-                    report(query.target, query().mac,
-                           'Dead', query().time,
-                           epoch_to_local(timestamp))
-                    time.sleep(5)  # to stop multiple entries
-                except TypeError as te:
-                    print('we have an error:', te)
+        print(check_status())
 
-            printer(mac, rssi, timestamp, ssid)
-            log(ssid, mac, rssi, timestamp)
+        if mac in TARGET_LIST:
+            try:
+                print('{} {} {} {} {msg}'.format(mac, rssi, epoch, dtg,
+                                                 msg='Alive'))
+                report(target=None, mac=mac, rssi=rssi, epoch=epoch,
+                       dtg=dtg, msg='Alive')
+                time.sleep(5)  # to stop multiple entries
+            except TypeError as e:
+                print(e)
+
+    # if timestamp > (query.time + ALERT_THRESHOLD):
+    #     try:
+    #         print('report should return dead for: {}'.format(
+    #             query().mac), epoch_to_local(timestamp))
+    #
+    #         report(query.target, query().mac,
+    #                'Dead', query().time,
+    #                epoch_to_local(timestamp))
+    #         time.sleep(5)  # to stop multiple entries
+    #     except TypeError as te:
+    #         print('we have an error:', te)
+
+    # printer(mac, rssi, timestamp, ssid)
+    # log(ssid, mac, rssi, timestamp)
 
 
 def get_rssi(packet):
@@ -70,40 +84,29 @@ def get_rssi(packet):
         return packet.dbm_antsignal
 
 
-def epoch():
+def epochtime():
     """Get local time."""
     dt = datetime.utcnow()
     epoch = int(datetime.timestamp(dt))
     return epoch
 
 
-def epoch_to_local(epoch):
+def system_time(epoch):
     """Return the epoch time in system time. Human readability paramount."""
     return time.ctime(epoch)
 
 
-def printer(mac, rssi, timestamp, ssid):
-    # print("MAC: {}      RSSI: {}        TIME: {}    PROBES: {}".format(
-    # mac, rssi, epoch_to_local(timestamp), ssid))
-    """All below for testing only. Remove when done."""
-    if mac not in for_testing_only:
-        for_testing_only.append(mac)
-        print("MAC: {}      RSSI: {}        TIME: {}    PROBES: {}".format(
-            mac, rssi, epoch_to_local(timestamp), ssid))
+def check_status():
+    return db.get_last('logging', 'epoch')
 
 
-
-def log(ssid, mac, rssi, epoch):
-    """Log packets to database"""
-    pass
-
-
-def report(target, mac, timestamp, msg, debug):
+def report(target=None, mac=None, rssi=None, epoch=None, dtg=None,
+           msg=None):
     """Alert if specified MAC is in range."""
-    pass
+    with closing(SqlDatabase('test.db')) as db:
+        db.write(target, mac, rssi, epoch, dtg, msg)
+
 
 if __name__ == '__main__':
-
-    for_testing_only = list()
     # sniff(iface=sys.argv[1], store=0, prn=packet_handler)
     sniff(iface=IFACE, store=0, prn=packet_handler)
