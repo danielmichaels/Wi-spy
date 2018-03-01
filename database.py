@@ -39,7 +39,7 @@ class SqlDatabase:
         """
         try:
             query = """CREATE TABLE IF NOT EXISTS logging (target TEXT, 
-                    mac TEXT, rssi TEXT, epochtimes INT, dtg TEXT, msg TEXT)"""
+                    mac TEXT, rssi TEXT, epoch INT, dtg TEXT, msg TEXT)"""
             self.cursor.execute(query)
             self.conn.commit()
 
@@ -75,15 +75,16 @@ class SqlDatabase:
 
         return self.get(table, column, limit=1)[0]
 
-    def write(self, target=None, mac=None, rssi=None, epochtime=None,
+    def write(self, target=None, mac=None, rssi=None, epoch=None,
               dtg=None, msg=None):
         """Write to the database
 
         :param target: the human readable name.
         :param mac: the MAC address that matches target.
-        :param rssi: recieved signal strength indicator of target/mac.
-        :param epochtime: machine readable epoch time.
+        :param rssi: received signal strength indicator of target/mac.
+        :param epoch: machine readable epoch time.
         :param dtg: date time group --> human readable local system time.
+        :param msg: generates a msg for logging the status of target.
 
         Usage:
 
@@ -93,14 +94,24 @@ class SqlDatabase:
         each param defaults to None.
         """
 
-        query = """insert into logging values(:target, :mac, :rssi, :epochtime, :dtg, :msg)"""
-        fields = dict(target=target, mac=mac, rssi=rssi, epochtime=epochtime,
+        query = """insert into logging values(:target, :mac, :rssi, :epoch, :dtg, :msg)"""
+        fields = dict(target=target, mac=mac, rssi=rssi, epoch=epoch,
                       dtg=dtg, msg=msg)
         self.cursor.execute(query, fields)  # execute needs (sql [,parameters])
+        # self.conn.commit()
 
     def query(self, *sql):
         """Utility function to enter any valid SQL query"""
         self.cursor.execute(*sql)
+        # self.conn.commit()
+
+    def close(self):
+        """Closes the database."""
+
+        if self.conn:
+            self.conn.commit()
+            self.cursor.close()
+            self.conn.close()
 
     def __enter__(self):
         return self
@@ -115,17 +126,16 @@ class SqlDatabase:
 
         self.conn.close()
 
-
 # RANDOM TESTING STUFF
 
 # db = SqlDatabase('log.db')
 # with db:
 
-with SqlDatabase('test.db') as db:
-    db.create_table()
-    db.query(
-        "INSERT INTO logging VALUES(:target, :mac, :rssi, :epochtimes, :dtg,"
-        ":msg);",
-        dict(target='target', mac='mac', rssi='rssi', epochtimes=123142145,
-             dtg='dtg', msg='msg'))
-    db.write('target', 'mac', 'rssi', 12231, 'dtg', 'msg')
+# with SqlDatabase('test.db') as db:
+#     db.create_table()
+#     db.query(
+#         "INSERT INTO logging VALUES(:target, :mac, :rssi, :epoch, :dtg,"
+#         ":msg);",
+#         dict(target='target', mac='mac', rssi='rssi', epoch=123142145,
+#              dtg='dtg', msg='msg'))
+#     db.write('target', 'mac', 'rssi', 12231, 'dtg', 'msg')
