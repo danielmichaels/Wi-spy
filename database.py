@@ -39,7 +39,7 @@ class SqlDatabase:
         """
         try:
             query = """CREATE TABLE IF NOT EXISTS logging (target TEXT, 
-                    mac TEXT, rssi TEXT, epochtime TEXT, dtg TEXT)"""
+                    mac TEXT, rssi TEXT, epochtimes INT, dtg TEXT, msg TEXT)"""
             self.cursor.execute(query)
             self.conn.commit()
 
@@ -76,7 +76,7 @@ class SqlDatabase:
         return self.get(table, column, limit=1)[0]
 
     def write(self, target=None, mac=None, rssi=None, epochtime=None,
-              dtg=None):
+              dtg=None, msg=None):
         """Write to the database
 
         :param target: the human readable name.
@@ -87,15 +87,15 @@ class SqlDatabase:
 
         Usage:
 
-            >>> db = SqlDatabase('example_db.db')
-            >>> db.write(target, mac, rssi, epochtime, dtg)
+            # >>> db = SqlDatabase('example_db.db')
+            # >>> db.write(target, mac, rssi, epochtime, dtg)
 
         each param defaults to None.
         """
 
-        query = """insert into logging values(:target, :mac, :rssi, :epochtime, :dtg)"""
+        query = """insert into logging values(:target, :mac, :rssi, :epochtime, :dtg, :msg)"""
         fields = dict(target=target, mac=mac, rssi=rssi, epochtime=epochtime,
-                      dtg=dtg)
+                      dtg=dtg, msg=msg)
         self.cursor.execute(query, fields)  # execute needs (sql [,parameters])
 
     def query(self, *sql):
@@ -123,6 +123,9 @@ class SqlDatabase:
 
 with SqlDatabase('test.db') as db:
     db.create_table()
-    # db.query("INSERT INTO logging VALUES(:target, :mac, :rssi, :epochtime, :dtg);",
-    #          dict(target='target', mac='mac', rssi='rssi', epochtime='epoch', dtg='dtg'))
-    db.write('target', 'mac', 'rssi', 'epoch', 'dtg')
+    db.query(
+        "INSERT INTO logging VALUES(:target, :mac, :rssi, :epochtimes, :dtg,"
+        ":msg);",
+        dict(target='target', mac='mac', rssi='rssi', epochtimes=123142145,
+             dtg='dtg', msg='msg'))
+    db.write('target', 'mac', 'rssi', 12231, 'dtg', 'msg')
