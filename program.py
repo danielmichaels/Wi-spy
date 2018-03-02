@@ -50,7 +50,8 @@ def packet_handler(packet):
         dtg = system_time(epoch)
         msg = None
 
-        print(check_status())
+        last_seen() # last time target captured in epochtime.
+        print(last_seen())
 
         if mac in TARGET_LIST:
             try:
@@ -96,8 +97,11 @@ def system_time(epoch):
     return time.ctime(epoch)
 
 
-def check_status():
-    return db.get_last('logging', 'epoch')
+def last_seen():
+    last = db.get('logging', 'epoch', limit=1)
+    if last is None:
+        return
+    return last
 
 
 def report(target=None, mac=None, rssi=None, epoch=None, dtg=None,
