@@ -10,9 +10,10 @@ User must have sudo and aircrack-ng suite to monitor and cycle channels.
 """
 
 from contextlib import closing
+from datetime import datetime
 from scapy.all import *
 from scapy.layers.dot11 import RadioTap, Dot11
-from datetime import datetime, timedelta
+from sqlite3 import Error
 
 # Import config
 from config import *
@@ -21,7 +22,8 @@ from database import SqlDatabase
 
 # Globals
 db = SqlDatabase('test.db')  # database for logging targets.
-db.create_table()
+with db:
+    db.create_table()
 
 
 # TODO: auto generate databases instead of hardcoding.
@@ -49,34 +51,28 @@ def packet_handler(packet):
         epoch = epochtime()
         dtg = system_time(epoch)
         msg = None
-
-        last_seen() # last time target captured in epochtime.
-        print(last_seen())
+        # last = last_seen()  # last time target captured in epochtime.
+        # print(type(last), 'line 58')
 
         if mac in TARGET_LIST:
             try:
                 print('{} {} {} {} {msg}'.format(mac, rssi, epoch, dtg,
                                                  msg='Alive'))
-                report(target=None, mac=mac, rssi=rssi, epoch=epoch,
-                       dtg=dtg, msg='Alive')
-                time.sleep(5)  # to stop multiple entries
+                # report(target=None, mac=mac, rssi=rssi, epoch=epoch,
+                #        dtg=dtg, msg='Alive')
+                # time.sleep(5)  # to stop multiple entries
             except TypeError as e:
                 print(e)
 
-    # if timestamp > (query.time + ALERT_THRESHOLD):
-    #     try:
-    #         print('report should return dead for: {}'.format(
-    #             query().mac), epoch_to_local(timestamp))
-    #
-    #         report(query.target, query().mac,
-    #                'Dead', query().time,
-    #                epoch_to_local(timestamp))
-    #         time.sleep(5)  # to stop multiple entries
-    #     except TypeError as te:
-    #         print('we have an error:', te)
-
-    # printer(mac, rssi, timestamp, ssid)
-    # log(ssid, mac, rssi, timestamp)
+        # for mac in TARGET_LIST:
+        #     if epoch >= (last[0] + 45):  # ALERT_THRESHOLD):
+        #         try:
+        #             print('Exceeded ALERT_THRESHOLD: {}'.format(mac))
+        #             report(target=None, mac=mac, rssi=rssi, epoch=epoch,
+        #                    dtg=dtg, msg='Dead')
+        #             time.sleep(5)
+        #         except Exception as e:
+        #             print(e, 'line 78')
 
 
 def get_rssi(packet):
@@ -89,6 +85,7 @@ def epochtime():
     """Get local time."""
     dt = datetime.utcnow()
     epoch = int(datetime.timestamp(dt))
+    # epoch = datetime.timestamp(dt)
     return epoch
 
 
@@ -98,19 +95,24 @@ def system_time(epoch):
 
 
 def last_seen():
-    last = db.get('logging', 'epoch', limit=1)
-    if last is None:
-        return
+    # Needs more debugging to get single entry from tuple and not throw index
+    # errors when accessing a database with no entries in table.
+    last = db.get_last('logging', 'epoch')
+
     return last
 
 
 def report(target=None, mac=None, rssi=None, epoch=None, dtg=None,
            msg=None):
     """Alert if specified MAC is in range."""
-    with closing(SqlDatabase('test.db')) as db:
-        db.write(target, mac, rssi, epoch, dtg, msg)
+    with db:
+        with closing(SqlDatabase('test.db')) as dib:
+            # with SqlDatabase('test.db') as dib:
+            dib.write(target, mac, rssi, epoch, dtg, msg)
+            # dib.close()
 
 
 if __name__ == '__main__':
+
     # sniff(iface=sys.argv[1], store=0, prn=packet_handler)
     sniff(iface=IFACE, store=0, prn=packet_handler)

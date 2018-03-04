@@ -73,7 +73,11 @@ class SqlDatabase:
         :return last row.
         """
 
-        return self.get(table, column, limit=1)[0]
+        query = "SELECT {0} from {1};".format(column, table)
+        self.cursor.execute(query)
+        row = self.cursor.fetchone()
+        return row
+        # return self.get(table, column, limit=1)[0]
 
     def write(self, target=None, mac=None, rssi=None, epoch=None,
               dtg=None, msg=None):
@@ -128,8 +132,11 @@ class SqlDatabase:
 
 # RANDOM TESTING STUFF
 
-# db = SqlDatabase('log.db')
-# with db:
+# db = SqlDatabase('test.db')
+# last = db.get_last('logging', 'epoch')
+# print(type(last))
+# print(last)
+# print(last[0])
 
 # with SqlDatabase('test.db') as db:
 #     db.create_table()
