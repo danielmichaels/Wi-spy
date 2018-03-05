@@ -22,8 +22,7 @@ from database import SqlDatabase
 
 # Globals
 db = SqlDatabase('test.db')  # database for logging targets.
-with db:
-    db.create_table()
+db.create_table()
 
 
 # TODO: auto generate databases instead of hardcoding.
@@ -39,8 +38,6 @@ def packet_handler(packet):
     Display results to screen
     """
     management_frames = (0, 2, 4)
-    timestamp = epoch()
-    query = check_if_alive()
 
     if not packet.haslayer(Dot11):
         return
@@ -53,28 +50,30 @@ def packet_handler(packet):
         epoch = epochtime()
         dtg = system_time(epoch)
         msg = None
-        # last = last_seen()  # last time target captured in epochtime.
-        # print(type(last), 'line 58')
+        # print(f'{mac} broadcasts: {ssid}   rssi:{rssi}   @ {dtg}')
+        last = last_seen()  # last time target captured in epochtime.
+        # print(type(last), 'line 55')
 
         if mac in TARGET_LIST:
             try:
                 print('{} {} {} {} {msg}'.format(mac, rssi, epoch, dtg,
                                                  msg='Alive'))
-                # report(target=None, mac=mac, rssi=rssi, epoch=epoch,
-                #        dtg=dtg, msg='Alive')
-                # time.sleep(5)  # to stop multiple entries
+                report(target=None, mac=mac, rssi=rssi, epoch=epoch,
+                       dtg=dtg, msg='Alive')
+                time.sleep(5)  # to stop multiple entries
             except TypeError as e:
                 print(e)
 
-        # for mac in TARGET_LIST:
-        #     if epoch >= (last[0] + 45):  # ALERT_THRESHOLD):
-        #         try:
-        #             print('Exceeded ALERT_THRESHOLD: {}'.format(mac))
-        #             report(target=None, mac=mac, rssi=rssi, epoch=epoch,
-        #                    dtg=dtg, msg='Dead')
-        #             time.sleep(5)
-        #         except Exception as e:
-        #             print(e, 'line 78')
+        for mac in TARGET_LIST:
+            if epoch >= (last + 60):  # ALERT_THRESHOLD):
+                print(last + 60)
+                try:
+                    print('Exceeded ALERT_THRESHOLD: {} {}'.format(mac, epoch))
+                    report(target=None, mac=mac, rssi=rssi, epoch=epoch,
+                           dtg=dtg, msg='Dead')
+                    time.sleep(5)
+                except Exception as e:
+                    print(e, 'line 78')
 
 
 def get_rssi(packet):
@@ -107,11 +106,7 @@ def last_seen():
 def report(target=None, mac=None, rssi=None, epoch=None, dtg=None,
            msg=None):
     """Alert if specified MAC is in range."""
-    with db:
-        with closing(SqlDatabase('test.db')) as dib:
-            # with SqlDatabase('test.db') as dib:
-            dib.write(target, mac, rssi, epoch, dtg, msg)
-            # dib.close()
+    db.write(target, mac, rssi, epoch, dtg, msg)
 
 
 if __name__ == '__main__':
