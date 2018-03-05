@@ -99,7 +99,7 @@ class SqlDatabase:
         each param defaults to None.
         """
 
-        query = """insert into logging values(:target, :mac, :rssi, :epoch, :dtg, :msg)"""
+        query = """INSERT INTO logging VALUES(:target, :mac, :rssi, :epoch, :dtg, :msg)"""
         fields = dict(target=target, mac=mac, rssi=rssi, epoch=epoch,
                       dtg=dtg, msg=msg)
         self.cursor.execute(query, fields)  # execute needs (sql [,parameters])

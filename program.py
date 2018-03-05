@@ -96,8 +96,7 @@ def system_time(epoch):
 
 
 def last_seen():
-    # Needs more debugging to get single entry from tuple and not throw index
-    # errors when accessing a database with no entries in table.
+    """Return the last row of 'epoch' as a integer."""
     last = db.get_last('logging', 'epoch')
 
     return last
