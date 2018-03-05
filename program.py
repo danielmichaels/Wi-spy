@@ -8,7 +8,7 @@ or absence with both epoch and local system time to a sqlite database.
 
 User must have sudo and aircrack-ng suite to monitor and cycle channels.
 """
-
+from collections import namedtuple
 from contextlib import closing
 from datetime import datetime
 from scapy.all import *
@@ -23,6 +23,7 @@ from database import SqlDatabase
 # Globals
 db = SqlDatabase('test.db')  # database for logging targets.
 db.create_table()
+Query = namedtuple('Query', 'target mac rssi epoch dtg msg')
 
 
 # TODO: auto generate databases instead of hardcoding.
@@ -51,8 +52,7 @@ def packet_handler(packet):
         dtg = system_time(epoch)
         msg = None
         # print(f'{mac} broadcasts: {ssid}   rssi:{rssi}   @ {dtg}')
-        last = last_seen()  # last time target captured in epochtime.
-        # print(type(last), 'line 55')
+        last = last_seen()
 
         if mac in TARGET_LIST:
             try:
@@ -64,16 +64,15 @@ def packet_handler(packet):
             except TypeError as e:
                 print(e)
 
-        for mac in TARGET_LIST:
-            if epoch >= (last + 60):  # ALERT_THRESHOLD):
-                print(last + 60)
+        if epoch >= (last.epoch + 60):  # ALERT_THRESHOLD):
+                print(last.epoch + 60, 'last.epoch plus epoch')
                 try:
-                    print('Exceeded ALERT_THRESHOLD: {} {}'.format(mac, epoch))
-                    report(target=None, mac=mac, rssi=rssi, epoch=epoch,
+                    print('Exceeded ALERT_THRESHOLD: {} {}'.format(last.mac, last.epoch))
+                    report(target=None, mac=last.mac, rssi=rssi, epoch=epoch,
                            dtg=dtg, msg='Dead')
                     time.sleep(5)
                 except Exception as e:
-                    print(e, 'line 78')
+                    print(e)
 
 
 def get_rssi(packet):
@@ -97,9 +96,11 @@ def system_time(epoch):
 
 def last_seen():
     """Return the last row of 'epoch' as a integer."""
-    last = db.get_last('logging', 'epoch')
+    last = db.get_last('logging', '*')
+    query = Query(target=last[0], mac=last[1], rssi=last[2], epoch=last[3],
+                  dtg=last[4], msg=last[5])
 
-    return last
+    return query
 
 
 def report(target=None, mac=None, rssi=None, epoch=None, dtg=None,
@@ -109,6 +110,5 @@ def report(target=None, mac=None, rssi=None, epoch=None, dtg=None,
 
 
 if __name__ == '__main__':
-
     # sniff(iface=sys.argv[1], store=0, prn=packet_handler)
     sniff(iface=IFACE, store=0, prn=packet_handler)

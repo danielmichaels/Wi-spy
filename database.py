@@ -76,7 +76,7 @@ class SqlDatabase:
         query = "SELECT {0} FROM {1} ORDER BY ROWID DESC LIMIT 1;".format(
             column, table)
         self.cursor.execute(query)
-        row = self.cursor.fetchone()[0]
+        row = self.cursor.fetchone()
         return row
         # return self.get(table, column, limit=1)[0] # uses fetchall()
 
@@ -132,11 +132,16 @@ class SqlDatabase:
         self.conn.close()
 
 # RANDOM TESTING STUFF
-
+#from collections import namedtuple
+#Query = namedtuple('Query', 'target mac rssi epoch dtg msg')
 #db = SqlDatabase('test.db')
-#last = db.get_last('logging', 'epoch')
+#last = db.get_last('logging', '*')
+#l = Query(target=last[0], mac=last[1], rssi=last[2], epoch=last[3], dtg=last[4],
+#          msg=last[5])
 #print(type(last))
 #print(last)
+#print(l.mac)
+#print(l.epoch)
 # print(last[0])
 
 # with SqlDatabase('test.db') as db:
