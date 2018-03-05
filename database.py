@@ -73,11 +73,12 @@ class SqlDatabase:
         :return last row.
         """
 
-        query = "SELECT {0} from {1};".format(column, table)
+        query = "SELECT {0} FROM {1} ORDER BY ROWID DESC LIMIT 1;".format(
+            column, table)
         self.cursor.execute(query)
-        row = self.cursor.fetchone()
+        row = self.cursor.fetchone()[0]
         return row
-        # return self.get(table, column, limit=1)[0]
+        # return self.get(table, column, limit=1)[0] # uses fetchall()
 
     def write(self, target=None, mac=None, rssi=None, epoch=None,
               dtg=None, msg=None):
@@ -102,12 +103,12 @@ class SqlDatabase:
         fields = dict(target=target, mac=mac, rssi=rssi, epoch=epoch,
                       dtg=dtg, msg=msg)
         self.cursor.execute(query, fields)  # execute needs (sql [,parameters])
-        # self.conn.commit()
+        self.conn.commit()
 
     def query(self, *sql):
         """Utility function to enter any valid SQL query"""
         self.cursor.execute(*sql)
-        # self.conn.commit()
+        self.conn.commit()
 
     def close(self):
         """Closes the database."""
@@ -132,10 +133,10 @@ class SqlDatabase:
 
 # RANDOM TESTING STUFF
 
-# db = SqlDatabase('test.db')
-# last = db.get_last('logging', 'epoch')
-# print(type(last))
-# print(last)
+#db = SqlDatabase('test.db')
+#last = db.get_last('logging', 'epoch')
+#print(type(last))
+#print(last)
 # print(last[0])
 
 # with SqlDatabase('test.db') as db:

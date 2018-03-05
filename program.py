@@ -39,6 +39,8 @@ def packet_handler(packet):
     Display results to screen
     """
     management_frames = (0, 2, 4)
+    timestamp = epoch()
+    query = check_if_alive()
 
     if not packet.haslayer(Dot11):
         return
