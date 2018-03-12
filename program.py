@@ -9,11 +9,9 @@ or absence with both epoch and local system time to a sqlite database.
 User must have sudo and aircrack-ng suite to monitor and cycle channels.
 """
 from collections import namedtuple
-from contextlib import closing
 from datetime import datetime
 from scapy.all import *
 from scapy.layers.dot11 import RadioTap, Dot11
-from sqlite3 import Error
 
 # Import config
 from config import *
@@ -32,6 +30,7 @@ Query = namedtuple('Query', 'target mac rssi epoch dtg msg')
 # TODO: ^cont. each target in list.
 # TODO: should I return constant 'alive' & 'dead' or make conditional?
 # TODO: target that sleeps doesn't probe until in use --> force it.
+# TODO: select WHERE mac is target_mac and do a check on last seen.
 
 
 def packet_handler(packet):
@@ -50,7 +49,6 @@ def packet_handler(packet):
         rssi = get_rssi(packet)
         epoch = epochtime()
         dtg = system_time(epoch)
-        msg = None
         # print(f'{mac} broadcasts: {ssid}   rssi:{rssi}   @ {dtg}')
         last = last_seen()
 
@@ -64,10 +62,14 @@ def packet_handler(packet):
             except TypeError as e:
                 print(e)
 
-        if epoch >= (last.epoch + 60):  # ALERT_THRESHOLD):
-                print(last.epoch + 60, 'last.epoch plus epoch')
+        if last is not None:
+            if epoch >= (last.epoch + 600):  # ALERT_THRESHOLD):
+                if last.mac is None:
+                    return
+                # print(last.epoch + 60, 'last.epoch plus epoch')
                 try:
-                    print('Exceeded ALERT_THRESHOLD: {} {}'.format(last.mac, last.epoch))
+                    print('Exceeded ALERT_THRESHOLD: {} {}'.format(last.mac,
+                                                                   last.epoch))
                     report(target=None, mac=last.mac, rssi=rssi, epoch=epoch,
                            dtg=dtg, msg='Dead')
                     time.sleep(5)
@@ -97,6 +99,12 @@ def system_time(epoch):
 def last_seen():
     """Return the last row of 'epoch' as a integer."""
     last = db.get_last('logging', '*')
+    if last is None:
+        insert_dummy = db.write(target=None, mac=None, rssi=None,
+                                epoch=epochtime(),
+                                dtg=system_time(epochtime()), msg="Dummy Data")
+        return insert_dummy
+
     query = Query(target=last[0], mac=last[1], rssi=last[2], epoch=last[3],
                   dtg=last[4], msg=last[5])
 
