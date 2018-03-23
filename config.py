@@ -11,4 +11,4 @@ TARGET_LIST = [
 ]
 
 # Time before first alert indicating target no longer in range.
-ALERT_THRESHOLD = 300
+ALERT_THRESHOLD = 600

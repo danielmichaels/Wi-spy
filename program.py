@@ -1,4 +1,3 @@
-# program.py
 # !/usr/bin/env python3
 """Library for scanning wireless frames and locating MAC addresses of interest.
 
@@ -22,15 +21,6 @@ from database import SqlDatabase
 db = SqlDatabase('test.db')  # database for logging targets.
 db.create_table()
 Query = namedtuple('Query', 'target mac rssi epoch dtg msg')
-
-
-# TODO: auto generate databases instead of hardcoding.
-# TODO: use dict so MAC can have value associated with it.
-# TODO: current sql query only returns last report. needs to return last of
-# TODO: ^cont. each target in list.
-# TODO: should I return constant 'alive' & 'dead' or make conditional?
-# TODO: target that sleeps doesn't probe until in use --> force it.
-# TODO: select WHERE mac is target_mac and do a check on last seen.
 
 
 def packet_handler(packet):
@@ -63,7 +53,7 @@ def packet_handler(packet):
                 print(e)
 
         if last is not None:
-            if epoch >= (last.epoch + 600):  # ALERT_THRESHOLD):
+            if epoch >= (last.epoch + ALERT_THRESHOLD):
                 if last.mac is None:
                     return
                 # print(last.epoch + 60, 'last.epoch plus epoch')
