@@ -1,10 +1,10 @@
 # Wife-fi
-A python command-line tool for tracking when my wife (or any other nominated MAC address) is within range.
+A python command-line tool for tracking when handsets enter/exit my local area.
 
 This is a toy script that does the following:
 
 - sniff WLAN frames for probes
-- pull in any frame that has a MAC address we target
+- pull in any frame that has a MAC address according to a target list
 - log that frame to a sqlite database with the following columns:
     - MAC, rssi, epochtime, system time, status message
 - if handset has not probed in 600 seconds send a report stating its dead
