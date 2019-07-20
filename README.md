@@ -1,4 +1,4 @@
-# Wife-fi
+# Wi-spy
 A python command-line tool for tracking when handsets enter/exit my local area.
 
 This is a toy script that does the following:
